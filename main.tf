@@ -77,10 +77,11 @@ resource "aws_security_group" "allow_ssh_http" {
 }
 
 resource "aws_instance" "instance1" {
-  ami                   = data.aws_ami.amazon_linux.id
-  instance_type         = "t2.micro"
-  subnet_id             = aws_subnet.subnet1.id
-  vpc_security_group_ids = [aws_security_group.allow_ssh_http.id]
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.subnet1.id
+  vpc_security_group_ids      = [aws_security_group.allow_ssh_http.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -97,10 +98,11 @@ resource "aws_instance" "instance1" {
 }
 
 resource "aws_instance" "instance2" {
-  ami                   = data.aws_ami.amazon_linux.id
-  instance_type         = "t2.micro"
-  subnet_id             = aws_subnet.subnet2.id
-  vpc_security_group_ids = [aws_security_group.allow_ssh_http.id]
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = "t2.micro"
+  subnet_id                   = aws_subnet.subnet2.id
+  vpc_security_group_ids      = [aws_security_group.allow_ssh_http.id]
+  associate_public_ip_address = true
 
   user_data = <<-EOF
               #!/bin/bash
@@ -175,4 +177,12 @@ resource "aws_lb_target_group_attachment" "instance2" {
 
 output "load_balancer_dns_name" {
   value = aws_lb.app_lb.dns_name
+}
+
+output "instance1_public_ip" {
+  value = aws_instance.instance1.public_ip
+}
+
+output "instance2_public_ip" {
+  value = aws_instance.instance2.public_ip
 }
