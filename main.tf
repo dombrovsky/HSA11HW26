@@ -2,12 +2,12 @@ provider "aws" {
   region = "us-east-1"
 }
 
-data "aws_ami" "amazon_linux" {
+data "aws_ami" "ubuntu" {
   most_recent = true
   owners      = ["amazon"]
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["ubuntu/images/hvm-ssd/ubuntu-focal-20.04-amd64-server-*"]
   }
 }
 
@@ -64,6 +64,13 @@ resource "aws_security_group" "allow_ssh_http" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
+  ingress {
+    from_port = 443
+    to_port = 443
+    protocol = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -77,20 +84,14 @@ resource "aws_security_group" "allow_ssh_http" {
 }
 
 resource "aws_instance" "instance1" {
-  ami                         = data.aws_ami.amazon_linux.id
+  ami                         = data.aws_ami.ubuntu.id
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.subnet1.id
   vpc_security_group_ids      = [aws_security_group.allow_ssh_http.id]
   associate_public_ip_address = true
+  key_name                    = "aws"
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              amazon-linux-extras install nginx1 -y
-              echo "instance1" > /usr/share/nginx/html/index.html
-              systemctl start nginx
-              systemctl enable nginx
-              EOF
+  user_data = file("userdata.instance1.sh")
 
   tags = {
     Name = "instance1"
@@ -98,20 +99,14 @@ resource "aws_instance" "instance1" {
 }
 
 resource "aws_instance" "instance2" {
-  ami                         = data.aws_ami.amazon_linux.id
+  ami                         = data.aws_ami.ubuntu.id
   instance_type               = "t2.micro"
   subnet_id                   = aws_subnet.subnet2.id
   vpc_security_group_ids      = [aws_security_group.allow_ssh_http.id]
   associate_public_ip_address = true
+  key_name                    = "aws"
 
-  user_data = <<-EOF
-              #!/bin/bash
-              yum update -y
-              amazon-linux-extras install nginx1 -y
-              echo "instance2" > /usr/share/nginx/html/index.html
-              systemctl start nginx
-              systemctl enable nginx
-              EOF
+  user_data = file("userdata.instance2.sh")
 
   tags = {
     Name = "instance2"
@@ -173,6 +168,29 @@ resource "aws_lb_target_group_attachment" "instance2" {
   target_group_arn = aws_lb_target_group.app_tg.arn
   target_id        = aws_instance.instance2.id
   port             = 80
+}
+
+resource "aws_route_table" "public" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "public-route-table"
+  }
+}
+
+resource "aws_route_table_association" "public_subnet1" {
+  subnet_id      = aws_subnet.subnet1.id
+  route_table_id = aws_route_table.public.id
+}
+
+resource "aws_route_table_association" "public_subnet2" {
+  subnet_id      = aws_subnet.subnet2.id
+  route_table_id = aws_route_table.public.id
 }
 
 output "load_balancer_dns_name" {
